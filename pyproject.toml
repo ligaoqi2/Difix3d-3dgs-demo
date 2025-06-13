@@ -1,0 +1,53 @@
+[project]
+name = "difix3d"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.10"
+dependencies = [
+    "torch==1.13.1",
+    "torchvision==0.14.1",
+    "torchaudio==0.13.1",
+    "torchmetrics[image]>=1.5.2",
+    "wandb>=0.20.1",
+    "imageio[ffmpeg]>=2.37.0",
+    "einops>=0.8.1",
+    "lpips>=0.1.4",
+    "xformers>=0.0.16",
+    "peft==0.9.0",
+    "diffusers==0.25.1",
+    "huggingface-hub==0.25.1",
+    "transformers==4.38.0",
+    "numpy<2.0.0",
+    "gsplat>=1.5.2",
+    "viser>=0.2.1",
+    "nerfview==0.0.2",
+    "scikit-learn>=1.7.0",
+    "tqdm>=4.67.1",
+    "opencv-python>=4.11.0.86",
+    "tyro>=0.8.8",
+    "pillow>=11.2.1",
+    "tensorboard>=2.19.0",
+    "tensorly>=0.9.0",
+    "pyyaml>=6.0.2",
+    "matplotlib>=3.10.3",
+    "pycolmap",
+    "fused-ssim",
+]
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu116", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu116", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+pycolmap = { git = "https://github.com/rmbrualla/pycolmap", rev = "cc7ea4b7301720ac29287dbe450952511b32125e" }
+fused-ssim = { git = "https://github.com/rahul-goel/fused-ssim", rev = "1272e21a282342e89537159e4bad508b19b34157" }
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[[tool.uv.index]]
+name = "pytorch-cu116"
+url = "https://download.pytorch.org/whl/cu116"
+explicit = true
