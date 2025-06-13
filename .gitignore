@@ -1,3 +1,4 @@
-examples/gsplat/data
+examples/gsplat/data/*
+
 .idea
 .venv
