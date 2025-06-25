@@ -333,12 +333,16 @@ class Dataset:
         
         indices = np.arange(len(self.parser.image_names))
         if self.parser.test_every == 1:
-            image_names = sorted(_get_rel_paths(f"{self.parser.data_dir}/images"), key=lambda x: int(x.split(".")[0].split("_")[-1]))
-            assert len(image_names) == len(self.parser.image_names)
+            # image_names = sorted(_get_rel_paths(f"{self.parser.data_dir}/images"), key=lambda x: int(x.split(".")[0].split("_")[-1]))
+            # assert len(image_names) == len(self.parser.image_names)
+            # if split == "train":
+            #     self.indices = [ind for ind in indices if "_train_" in image_names[ind]]
+            # else:
+            #     self.indices = [ind for ind in indices if "_eval_" in image_names[ind]]
             if split == "train":
-                self.indices = [ind for ind in indices if "_train_" in image_names[ind]]
+                self.indices = indices[indices % self.parser.test_every == 0]
             else:
-                self.indices = [ind for ind in indices if "_eval_" in image_names[ind]]
+                self.indices = indices[indices % self.parser.test_every != 0]
         elif self.parser.test_every == 0:
             self.indices = indices
         else:

@@ -52,7 +52,7 @@ from src.pipeline_difix import DifixPipeline
 @dataclass
 class Config:
     # Disable viewer
-    disable_viewer: bool = True # ! turn off viser
+    disable_viewer: bool = False  # ! turn off viser
     # Path to the .pt files. If provide, it will skip training and run evaluation only.
     ckpt: Optional[List[str]] = None
     # Name of compression strategy to use
@@ -86,13 +86,20 @@ class Config:
     steps_scaler: float = 1.0
 
     # Number of training steps
-    max_steps: int = 60_000
+    # max_steps: int = 60_000
+    # max_steps: int = 30_000
+    max_steps: int = 10_000         # 本地最大支持 10_000 steps
     # Steps to evaluate the model
-    eval_steps: List[int] = field(default_factory=lambda: [1_0000, 2_0000, 3_0000, 3_5000, 4_0000, 4_5000, 5_0000, 5_5000, 6_0000])
+    eval_steps: List[int] = field(
+        default_factory=lambda: [1_0000, 2_0000, 3_0000, 3_5000, 4_0000, 4_5000, 5_0000, 5_5000, 6_0000])
     # Steps to save the model
-    save_steps: List[int] = field(default_factory=lambda: [1_0000, 2_0000, 3_0000, 4_0000, 4_5000, 5_0000, 5_5000, 6_0000])
+    save_steps: List[int] = field(
+        default_factory=lambda: [1_0000, 2_0000, 3_0000, 4_0000, 4_5000, 5_0000, 5_5000, 6_0000])
     # Steps to fix the artifacts
-    fix_steps: List[int] = field(default_factory=lambda: [3_000, 6_000, 8_000, 10_000, 12_000, 14_000, 16_000, 18_000, 20_000, 22_000, 24_000, 26_000, 28_000, 30_000, 32_000, 34_000, 36_000, 38_000, 40_000, 42_000, 44_000, 46_000, 48_000, 50_000, 52_000, 54_000, 56_000, 58_000, 60_000])
+    fix_steps: List[int] = field(
+        default_factory=lambda: [3_000, 6_000, 8_000, 10_000, 12_000, 14_000, 16_000, 18_000, 20_000, 22_000, 24_000,
+                                 26_000, 28_000, 30_000, 32_000, 34_000, 36_000, 38_000, 40_000, 42_000, 44_000, 46_000,
+                                 48_000, 50_000, 52_000, 54_000, 56_000, 58_000, 60_000])
 
     # Initialization strategy
     init_type: str = "sfm"
@@ -195,21 +202,21 @@ class Config:
 
 
 def create_splats_with_optimizers(
-    parser: Parser,
-    init_type: str = "sfm",
-    init_num_pts: int = 100_000,
-    init_extent: float = 3.0,
-    init_opacity: float = 0.1,
-    init_scale: float = 1.0,
-    scene_scale: float = 1.0,
-    sh_degree: int = 3,
-    sparse_grad: bool = False,
-    visible_adam: bool = False,
-    batch_size: int = 1,
-    feature_dim: Optional[int] = None,
-    device: str = "cuda",
-    world_rank: int = 0,
-    world_size: int = 1,
+        parser: Parser,
+        init_type: str = "sfm",
+        init_num_pts: int = 100_000,
+        init_extent: float = 3.0,
+        init_opacity: float = 0.1,
+        init_scale: float = 1.0,
+        scene_scale: float = 1.0,
+        sh_degree: int = 3,
+        sparse_grad: bool = False,
+        visible_adam: bool = False,
+        batch_size: int = 1,
+        feature_dim: Optional[int] = None,
+        device: str = "cuda",
+        world_rank: int = 0,
+        world_size: int = 1,
 ) -> Tuple[torch.nn.ParameterDict, Dict[str, torch.optim.Optimizer]]:
     if init_type == "sfm":
         points = torch.from_numpy(parser.points).float()
@@ -284,7 +291,7 @@ class Runner:
     """Engine for training and testing."""
 
     def __init__(
-        self, local_rank: int, world_rank, world_size: int, cfg: Config
+            self, local_rank: int, world_rank, world_size: int, cfg: Config
     ) -> None:
         set_random_seed(42 + local_rank)
 
@@ -321,7 +328,7 @@ class Runner:
             patch_size=cfg.patch_size,
             load_depths=cfg.depth_loss,
         )
-        self.valset = Dataset(self.parser, split="val")
+        self.valset = Dataset(self.parser, split="train")
         self.scene_scale = self.parser.scene_scale * 1.1 * cfg.global_scale
         print("Scene scale:", self.scene_scale)
 
@@ -449,7 +456,7 @@ class Runner:
                 render_fn=self._viewer_render_fn,
                 mode="training",
             )
-            
+
         # Fixer trajectory 
         self.interpolator = CameraPoseInterpolator(rotation_weight=1.0, translation_weight=1.0)
 
@@ -458,20 +465,21 @@ class Runner:
 
         self.novelloaders = []
         self.novelloaders_iter = []
-        
+
         # Diffusion fixer
-        self.difix = DifixPipeline.from_pretrained("nvidia/difix_ref", trust_remote_code=True)
+        # self.difix = DifixPipeline.from_pretrained("nvidia/difix_ref", trust_remote_code=True)
+        self.difix = DifixPipeline.from_pretrained("nvidia/difix", trust_remote_code=True)
         self.difix.set_progress_bar_config(disable=True)
         self.difix.to("cuda")
 
     def rasterize_splats(
-        self,
-        camtoworlds: Tensor,
-        Ks: Tensor,
-        width: int,
-        height: int,
-        masks: Optional[Tensor] = None,
-        **kwargs,
+            self,
+            camtoworlds: Tensor,
+            Ks: Tensor,
+            width: int,
+            height: int,
+            masks: Optional[Tensor] = None,
+            **kwargs,
     ) -> Tuple[Tensor, Tensor, Dict]:
         means = self.splats["means"]  # [N, 3]
         quats = self.splats["quats"]  # [N, 4]
@@ -576,6 +584,7 @@ class Runner:
         global_tic = time.time()
         pbar = tqdm.tqdm(range(init_step, max_steps))
         for step in pbar:
+            torch.cuda.empty_cache()
             if not cfg.disable_viewer:
                 while self.viewer.state.status == "paused":
                     time.sleep(0.01)
@@ -594,14 +603,14 @@ class Runner:
                     data = next(self.novelloaders_iter[-1])
                 except StopIteration:
                     self.novelloaders_iter[-1] = iter(self.novelloaders[-1])
-                    data = next(self.novelloaders_iter[-1])        
+                    data = next(self.novelloaders_iter[-1])
                 is_novel_data = True
 
             camtoworlds = camtoworlds_gt = data["camtoworld"].to(device)  # [1, 4, 4]
             Ks = data["K"].to(device)  # [1, 3, 3]
             pixels = data["image"].to(device) / 255.0  # [1, H, W, 3]
             num_train_rays_per_step = (
-                pixels.shape[0] * pixels.shape[1] * pixels.shape[2]
+                    pixels.shape[0] * pixels.shape[1] * pixels.shape[2]
             )
             image_ids = data["image_id"].to(device)
             masks = data["mask"].to(device) if "mask" in data else None  # [1, H, W]
@@ -652,9 +661,9 @@ class Runner:
                 bkgd = torch.rand(1, 3, device=device)
                 colors = colors + bkgd * (1.0 - alphas)
 
-            if is_novel_data and alpha_masks is not None:
-                colors = colors * (alpha_masks > 0.5).float()
-                pixels = pixels * (alpha_masks > 0.5).float()
+            # if is_novel_data and alpha_masks is not None:
+            #     colors = colors * (alpha_masks > 0.5).float()
+            #     pixels = pixels * (alpha_masks > 0.5).float()
 
             self.cfg.strategy.step_pre_backward(
                 params=self.splats,
@@ -696,14 +705,14 @@ class Runner:
             # regularizations
             if cfg.opacity_reg > 0.0:
                 loss = (
-                    loss
-                    + cfg.opacity_reg
-                    * torch.abs(torch.sigmoid(self.splats["opacities"])).mean()
+                        loss
+                        + cfg.opacity_reg
+                        * torch.abs(torch.sigmoid(self.splats["opacities"])).mean()
                 )
             if cfg.scale_reg > 0.0:
                 loss = (
-                    loss
-                    + cfg.scale_reg * torch.abs(torch.exp(self.splats["scales"])).mean()
+                        loss
+                        + cfg.scale_reg * torch.abs(torch.exp(self.splats["scales"])).mean()
                 )
 
             if is_novel_data:
@@ -722,7 +731,7 @@ class Runner:
             pbar.set_description(desc)
 
             if world_rank == 0 and cfg.tb_every > 0 and step % cfg.tb_every == 0:
-                mem = torch.cuda.max_memory_allocated() / 1024**3
+                mem = torch.cuda.max_memory_allocated() / 1024 ** 3
                 self.writer.add_scalar("train/loss", loss.item(), step)
                 self.writer.add_scalar("train/l1loss", l1loss.item(), step)
                 self.writer.add_scalar("train/ssimloss", ssimloss.item(), step)
@@ -740,7 +749,7 @@ class Runner:
 
             # save checkpoint before updating the model
             if step in [i - 1 for i in cfg.save_steps] or step == max_steps - 1:
-                mem = torch.cuda.max_memory_allocated() / 1024**3
+                mem = torch.cuda.max_memory_allocated() / 1024 ** 3
                 stats = {
                     "mem": mem,
                     "ellipse_time": time.time() - global_tic,
@@ -748,8 +757,8 @@ class Runner:
                 }
                 print("Step: ", step, stats)
                 with open(
-                    f"{self.stats_dir}/train_step{step:04d}_rank{self.world_rank}.json",
-                    "w",
+                        f"{self.stats_dir}/train_step{step:04d}_rank{self.world_rank}.json",
+                        "w",
                 ) as f:
                     json.dump(stats, f)
                 data = {"step": step, "splats": self.splats.state_dict()}
@@ -840,7 +849,7 @@ class Runner:
             # run fixer
             if step in [i - 1 for i in cfg.fix_steps]:
                 self.fix(step)
-            
+
             # run compression
             if cfg.compression is not None and step in [i - 1 for i in cfg.eval_steps]:
                 self.run_compression(step=step)
@@ -849,43 +858,53 @@ class Runner:
                 self.viewer.lock.release()
                 num_train_steps_per_sec = 1.0 / (time.time() - tic)
                 num_train_rays_per_sec = (
-                    num_train_rays_per_step * num_train_steps_per_sec
+                        num_train_rays_per_step * num_train_steps_per_sec
                 )
                 # Update the viewer state.
                 self.viewer.state.num_train_rays_per_sec = num_train_rays_per_sec
                 # Update the scene.
                 self.viewer.update(step, num_train_rays_per_step)
-    
+
     @torch.no_grad()
     def fix(self, step: int):
         print("Running fixer...")
         if len(self.cfg.fix_steps) == 1:
             novel_poses = self.parser.camtoworlds[self.valset.indices]
         else:
-            novel_poses = self.interpolator.shift_poses(self.current_novel_poses, self.parser.camtoworlds[self.valset.indices], distance=0.5)
-        
+            novel_poses = self.interpolator.shift_poses(self.current_novel_poses,
+                                                        self.parser.camtoworlds[self.valset.indices], distance=0.5)
+
         self.render_traj(step, novel_poses)
         image_paths = [f"{self.render_dir}/novel/{step}/Pred/{i:04d}.png" for i in range(len(novel_poses))]
 
         if len(self.novelloaders) == 0:
-            ref_image_indices = self.interpolator.find_nearest_assignments(self.parser.camtoworlds[self.trainset.indices], novel_poses)
+            ref_image_indices = self.interpolator.find_nearest_assignments(
+                self.parser.camtoworlds[self.trainset.indices], novel_poses)
             ref_image_paths = [self.parser.image_paths[i] for i in np.array(self.trainset.indices)[ref_image_indices]]
         else:
-            ref_image_indices = self.interpolator.find_nearest_assignments(self.parser.camtoworlds[self.trainset.indices], novel_poses)
+            ref_image_indices = self.interpolator.find_nearest_assignments(
+                self.parser.camtoworlds[self.trainset.indices], novel_poses)
             ref_image_paths = [self.parser.image_paths[i] for i in np.array(self.trainset.indices)[ref_image_indices]]
         assert len(image_paths) == len(ref_image_paths) == len(novel_poses)
 
         for i in tqdm.trange(0, len(novel_poses), desc="Fixing artifacts..."):
             image = Image.open(image_paths[i]).convert("RGB")
-            ref_image = Image.open(ref_image_paths[i]).convert("RGB")
+            # ref_image = Image.open(ref_image_paths[i]).convert("RGB")
             width, height = (1024, 576) if image.size[0] > image.size[1] else (576, 1024)
-            output_image = self.difix(prompt="remove degradation", image=image, ref_image=ref_image, width=width, height=height, num_inference_steps=1, timesteps=[199], guidance_scale=0.0).images[0]
+            # output_image = \
+            # self.difix(prompt="remove degradation", image=image, ref_image=ref_image, width=width, height=height,
+            #            num_inference_steps=1, timesteps=[199], guidance_scale=0.0).images[0]
+
+            output_image = \
+                self.difix(prompt="remove degradation", image=image,
+                           num_inference_steps=1, timesteps=[199], guidance_scale=0.0).images[0]
+
             os.makedirs(f"{self.render_dir}/novel/{step}/Fixed", exist_ok=True)
             output_image.save(f"{self.render_dir}/novel/{step}/Fixed/{i:04d}.png")
-            if ref_image is not None:
-                os.makedirs(f"{self.render_dir}/novel/{step}/Ref", exist_ok=True)
-                ref_image.save(f"{self.render_dir}/novel/{step}/Ref/{i:04d}.png")
-    
+            # if ref_image is not None:
+            #     os.makedirs(f"{self.render_dir}/novel/{step}/Ref", exist_ok=True)
+            #     ref_image.save(f"{self.render_dir}/novel/{step}/Ref/{i:04d}.png")
+
         parser = deepcopy(self.parser)
         parser.test_every = 0
         parser.image_paths = [f"{self.render_dir}/novel/{step}/Fixed/{i:04d}.png" for i in range(len(novel_poses))]
@@ -893,7 +912,7 @@ class Runner:
         parser.alpha_mask_paths = [f"{self.render_dir}/novel/{step}/Alpha/{i:04d}.png" for i in range(len(novel_poses))]
         parser.camtoworlds = novel_poses
         parser.camera_ids = [parser.camera_ids[0]] * len(novel_poses)
-        
+
         print(f"Adding {len(parser.image_paths)} fixed images to novel dataset...")
         dataset = Dataset(parser, split="train")
         dataloader = torch.utils.data.DataLoader(
@@ -908,7 +927,7 @@ class Runner:
         self.novelloaders_iter.append(iter(dataloader))
 
         self.current_novel_poses = novel_poses
-            
+
     @torch.no_grad()
     def eval(self, step: int, stage: str = "val"):
         """Entry for evaluation."""
@@ -961,7 +980,7 @@ class Runner:
                 colors_canvas = colors.squeeze(0).cpu().numpy()
                 colors_canvas = (colors_canvas * 255).astype(np.uint8)
                 imageio.imwrite(colors_path, colors_canvas)
-                
+
                 alphas_path = f"{self.render_dir}/val/{step}/Alpha/{i:04d}.png"
                 os.makedirs(os.path.dirname(alphas_path), exist_ok=True)
                 alphas_canvas = (alphas < 0.5).squeeze(0).cpu().numpy()
@@ -1045,7 +1064,7 @@ class Runner:
         width, height = list(self.parser.imsize_dict.values())[0]
 
         for i in tqdm.trange(0, len(camtoworlds_all), batch_size, desc="Rendering trajectory"):
-            camtoworlds = camtoworlds_all[i : i + batch_size]
+            camtoworlds = camtoworlds_all[i: i + batch_size]
             Ks = K[None].repeat(camtoworlds.shape[0], 1, 1)
 
             renders, alphas, _ = self.rasterize_splats(
@@ -1063,14 +1082,14 @@ class Runner:
                 colors = torch.clamp(renders[j, ..., 0:3], 0.0, 1.0)  # [H, W, 3]
                 depths = renders[j, ..., 3:4]  # [H, W, 1]
                 depths = (depths - depths.min()) / (depths.max() - depths.min())
-                
+
                 idx = i + j
                 colors_path = f"{self.render_dir}/{tag}/{step}/Pred/{idx:04d}.png"
                 os.makedirs(os.path.dirname(colors_path), exist_ok=True)
                 colors_canvas = colors.cpu().numpy()
                 colors_canvas = (colors_canvas * 255).astype(np.uint8)
                 imageio.imwrite(colors_path, colors_canvas)
-                
+
                 alphas_path = f"{self.render_dir}/{tag}/{step}/Alpha/{idx:04d}.png"
                 os.makedirs(os.path.dirname(alphas_path), exist_ok=True)
                 alphas_canvas = alphas[j].float().cpu().numpy()
@@ -1096,7 +1115,7 @@ class Runner:
 
     @torch.no_grad()
     def _viewer_render_fn(
-        self, camera_state: nerfview.CameraState, img_wh: Tuple[int, int]
+            self, camera_state: nerfview.CameraState, img_wh: Tuple[int, int]
     ):
         """Callable function for the viewer."""
         W, H = img_wh
@@ -1127,12 +1146,12 @@ def main(local_rank: int, world_rank, world_size: int, cfg: Config):
     if cfg.ckpt is not None:
         # run eval only
         ckpts = [
-            torch.load(file, map_location=runner.device, weights_only=True)
+            torch.load(file, map_location=runner.device, weights_only=False)
             for file in cfg.ckpt
         ]
         for k in runner.splats.keys():
             runner.splats[k].data = torch.cat([ckpt["splats"][k] for ckpt in ckpts])
-        step = ckpts[0]["step"]
+        step = 30000
         runner.train(step=step)
     else:
         runner.train()

@@ -18,7 +18,7 @@ dependencies = [
     "huggingface-hub==0.25.1",
     "transformers==4.38.0",
     "numpy<2.0.0",
-    "gsplat>=1.5.2",
+    "gsplat",
     "viser>=0.2.1",
     "nerfview==0.0.2",
     "scikit-learn>=1.7.0",
@@ -32,6 +32,8 @@ dependencies = [
     "matplotlib>=3.10.3",
     "pycolmap",
     "fused-ssim",
+    "setuptools==60.2.0",
+    "wheel>=0.45.1",
 ]
 [tool.uv.sources]
 torch = [
@@ -42,6 +44,7 @@ torchvision = [
 ]
 pycolmap = { git = "https://github.com/rmbrualla/pycolmap", rev = "cc7ea4b7301720ac29287dbe450952511b32125e" }
 fused-ssim = { git = "https://github.com/rahul-goel/fused-ssim", rev = "1272e21a282342e89537159e4bad508b19b34157" }
+gsplat = { git = "https://github.com/nerfstudio-project/gsplat.git", rev = "v1.5.2" }
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
