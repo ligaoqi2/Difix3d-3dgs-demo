@@ -1,1 +1,0 @@
-uv add git+https://github.com/nerfstudio-project/gsplat.git@v1.5.2 --no-build-isolation
