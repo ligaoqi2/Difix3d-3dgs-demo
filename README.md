@@ -14,6 +14,7 @@ CVPR 2025 (Oral)
 ## Setup using `uv`
 make sure you install `uv` first
 ```bash
+git clone git@github.com:ligaoqi2/Difix3d-3dgs-demo.git
 cd Difix-splat-demo
 uv sync
 ```
