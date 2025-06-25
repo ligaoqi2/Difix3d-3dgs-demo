@@ -80,7 +80,6 @@ Then you can open `http://localhost:8080` to see the generating process like fol
 
 ## Acknowledgements
 
-Our work is built upon the following projects:
 - [diffusers](https://github.com/huggingface/diffusers)
 - [img2img-turbo](https://github.com/GaParmar/img2img-turbo)
 - [nerfstudio](https://github.com/nerfstudio-project/nerfstudio)
