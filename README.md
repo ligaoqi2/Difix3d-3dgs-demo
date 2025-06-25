@@ -12,8 +12,7 @@ CVPR 2025 (Oral)
 
 ## Setup using `uv`
 make sure you install `uv` first
-```bas
-git clone git@github.com:ligaoqi2/Difix-splat-demo.git
+```bash
 cd Difix-splat-demo
 uv sync
 ```
